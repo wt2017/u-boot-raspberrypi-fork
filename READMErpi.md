@@ -29,6 +29,7 @@
 - [Compilation](#compilation)
   - [Cmds](#cmds)
 - [Boot Linux](#boot-linux)
+  - [Connect UART](#connect-uart)
   - [Steps](#steps)
   - [辅助命令](#辅助命令)
     - [printenv](#printenv)
@@ -382,12 +383,140 @@ void update_fdt_from_fw(void *fdt, void *fw_fdt)
 ```
 
 # Boot Linux
+## Connect UART
+```
+option-1: screen
+启动：sudo screen /dev/ttyACM0 115200
+退出：Ctrl+A, k -> yes -> quit
+
+option-2: minicom
+启动：minicom raspberrypi5 (raspberrypi5 见配置部分说明)
+退出：Ctrl+A, q -> yes -> quit
+
+
+配置：
+minicom -s
+进入后看到主菜单：
+
+text
+            [Configuration]
+            +-----[configuration]------+
+            | Filenames and paths      |
+            | File transfer protocols  |
+            | Serial port setup        |
+            | Modem and dialing        |
+            | Screen and keyboard      |
+            | Save setup as dfl        |
+            | Save setup as..          |
+            | Exit                     |
+            | Exit from Minicom        |
+            +--------------------------+
+1. Serial port setup —— 串口参数设置
+这是最常用的配置项，按 S 进入，会显示类似下面的界面：
+
+text
+   +-----------------------------------------------------------------------+
+   | A -    Serial Device      : /dev/ttyUSB0                              |
+   | B - Lockfile Location     : /var/lock                                 |
+   | C -   Callin Program      :                                           |
+   | D -  Callout Program      :                                           |
+   | E -    Bps/Par/Bits       : 115200 8N1                                |
+   | F - Hardware Flow Control : No                                        |
+   | G - Software Flow Control : No                                        |
+   |                                                                       |
+   |    Change which setting?                                              |
+   +-----------------------------------------------------------------------+
+各子项含义：
+
+A - Serial Device：串口设备文件路径。Linux 下通常为 /dev/ttyUSB0、/dev/ttyS0 等，根据实际连接的串口设备填写。
+
+B - Lockfile Location：锁文件存放目录，默认为 /var/lock，用于防止多个程序同时占用同一串口。
+
+C - Callin Program / D - Callout Program：通常为空，用于指定拨入/拨出时要执行的程序，串口调试无需设置。
+
+E - Bps/Par/Bits：波特率、校验位和数据位。格式如 115200 8N1 表示：
+
+波特率 115200
+
+8 数据位
+
+N 无奇偶校验（N=None, O=Odd, E=Even）
+
+1 停止位
+按 E 可以修改这些参数，minicom 会提示逐项选择。
+
+F - Hardware Flow Control：硬件流控（RTS/CTS），一般设为 No，除非你的设备需要硬件握手。
+
+G - Software Flow Control：软件流控（XON/XOFF），通常也设为 No，否则可能会干扰二进制数据传输。
+
+修改方法：按对应字母（如 A）即可编辑该行。
+
+2. Modem and dialing —— 调制解调器与拨号设置
+此菜单用于配置 modem 相关的拨号参数，在直接连接串口设备（如 Raspberry Pi）时通常无需修改，保持默认即可。常用子项包括：
+
+A - Init string：初始化 modem 的 AT 命令，默认如 AT。
+
+B - Reset string：重置 modem 的命令。
+
+拨号前缀/后缀：定义拨号时发送的指令。
+
+拨号脚本：自动拨号的脚本等。
+
+若只是作为串口终端使用，可忽略此项。
+
+3. Screen and keyboard —— 屏幕与键盘行为
+影响终端显示和键盘输入的处理方式，常用选项：
+
+A - Command key is：定义 minicom 的转义键，默认是 Meta-A（通常指 Ctrl+A）。
+
+B - Backspace key sends：Backspace 键发送的字符，一般选 DEL 或 BS，需与连接的设备匹配。
+
+C - Add linefeed：是否在收到回车时自动添加换行，通常设为 No。
+
+D - Local echo：本地回显，若连接的设备不支持回显，可设为 Yes 以便看到自己键入的内容。默认 No。
+
+E - Emulation：终端模拟类型，常用 ANSI 或 VT100。
+
+其他：如屏幕行列数、自动换行等。
+
+4. Filenames and paths —— 文件名与路径
+设置日志保存、上传下载的默认目录等：
+
+A - Download directory：从串口接收文件时保存的路径。
+
+B - Upload directory：发送文件时查找的路径。
+
+C - Script directory：存放运行脚本的目录。
+
+D - Capture file：默认的捕获文件名（用于记录串口输出）。
+
+5. File transfer protocols —— 文件传输协议
+配置上传/下载所使用的协议及其参数，如 xmodem、ymodem、zmodem 等。一般保持默认即可。
+
+6. Save setup as dfl —— 保存为默认配置
+将当前所有设置保存到 ~/.minirc.dfl 文件中，以后直接运行 minicom 就会加载此配置。
+
+7. Save setup as.. —— 另存配置
+将当前设置保存到自定义名称的文件（raspberrypi5），之后可以通过 minicom raspi 启动对应配置。必须是 sudo minicom -s 才可以保存，因为其文件路径必须为： /etc/minirc.raspberrypi5.
+
+cat /etc/minirc.raspberrypi5 
+# Machine-generated file - use "minicom -s" to change parameters.
+pu port             /dev/ttyACM0
+
+
+8. Exit —— 退出配置，进入终端
+保存配置后选择此项，minicom 会应用当前配置并进入串口通信界面。
+
+9. Exit from Minicom —— 完全退出 minicom
+不进入终端，直接退出 minicom 程序。
+```
+
 ## Steps
 ```
-fatload mmc 0:1 0x00080000 kernel_2712.img
+fatload mmc 0:1 0x00200000 kernel_2712.img
 fatload mmc 0:1 0x05600000 bcm2712-rpi-5-b.dtb
-setenv bootargs "console=tty1 console=ttyAMA0,115200 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait rw"
-booti 0x00080000 - 0x05600000
+setenv bootargs "console=tty1,115200 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait rw"
+booti 0x00200000 - 0x05600000
 ```
 
 ## 辅助命令
@@ -438,6 +567,8 @@ U-Boot> mmc dev 0
 switch to partitions #0, OK
 mmc0 is current device
 
+
+U-Boot> mmc part -> 查看当前 dev 0 下的所有分区 partition
 ```
 
 ### raspberry pi 典型布局
@@ -478,7 +609,8 @@ mount_root() {
 
 ### 查看文件，以及文件内容
 ```
-fatls mmc 0:1 -> 查看 mmc 0:1 下所有文件名
+fatls mmc 0:1 -> 查看 mmc 0:1 fat 文件系统下所有文件名
+ext4ls mmc 0:1 -> 查看 mmc 0:2 ext4 文件系统下的所有目录，文件
 cat mmc 0:1 config.txt -> 查看文件 config.txt 的内容
 ```
 
